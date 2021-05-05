@@ -32,7 +32,7 @@ Link to repository of other roles included - (https://github.com/jhagdu/k8sMulti
 
 # Links
 
-[Click here for Video and Post](https://www.linkedin.com/in/amanjhagrolia143)
+[Click here for Video and Post](https://www.linkedin.com/posts/amanjhagrolia143_rightmentor-righteducation-worldrecordholder-activity-6795671698160066560-j_kk)
   
 ***Feel free to Contact if any issue!!***
 
