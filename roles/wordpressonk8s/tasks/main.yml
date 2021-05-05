@@ -1,0 +1,150 @@
+- name: Install Python3
+  package:
+    name: python3
+    state: present
+
+- name: Install Required Python Packages
+  pip:
+    name: ['openshift', 'PyYAML']
+
+- name: Create a k8s namespace
+  community.kubernetes.k8s:
+    name: "{{ namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+    wait: yes
+
+- name: Create PVC for Wordpress
+  community.kubernetes.k8s:
+    state: present
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: wp-pvc
+        namespace: "{{ namespace }}"
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:  
+          requests:
+            storage: 1Gi
+
+- name: Create PVC for MySQL
+  community.kubernetes.k8s:
+    state: present
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: mysql-pvc
+        namespace: "{{ namespace }}"
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:  
+          requests:
+            storage: 1Gi
+
+- name: Create Deployment for Wordpress and MySQL Pods
+  community.kubernetes.k8s:
+    state: present
+    wait: yes
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: db-dep
+        namespace: "{{ namespace }}"
+      spec:
+        selector:
+          matchLabels:
+            env: production
+        replicas: "{{ wp_mysql_replicas }}"
+        template:
+          metadata:
+            labels:
+              env: production
+          spec:
+            containers:
+            - name: mysqlcont
+              image: mysql:5.6
+              env:
+              - name: MYSQL_ROOT_PASSWORD
+                value: toor
+              - name: MYSQL_DATABASE
+                value: wpdb
+              - name: MYSQL_USER
+                value: wpuser
+              - name: MYSQL_PASSWORD
+                value: wppass
+              ports:
+              - containerPort: 3306
+              volumeMounts:
+                - name: mysql-vol
+                  mountPath: /var/lib/mysql/
+            - name: wpcont
+              image: wordpress:4.8-apache
+              env:
+              - name: WORDPRESS_DB_HOST
+                value: localhost:3306
+              - name: WORDPRESS_DB_USER
+                value: wpuser
+              - name: WORDPRESS_DB_PASSWORD
+                value: wppass
+              - name: WORDPRESS_DB_NAME
+                value: wpdb
+              - name: WORDPRESS_TABLE_PREFIX
+                value: wp_
+              ports:
+              - containerPort: 80
+              volumeMounts:
+                - name: wp-vol
+                  mountPath: /var/www/html/
+            volumes:
+            - name: wp-vol
+              persistentVolumeClaim:
+                claimName: wp-pvc
+            - name: mysql-vol
+              persistentVolumeClaim:
+                claimName: mysql-pvc 
+
+- name: Create Service
+  community.kubernetes.k8s:
+    state: present
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: wp-svc
+        namespace: "{{ namespace }}"
+      spec:
+        type: "{{ svc_type }}"
+        selector:
+          env: production
+        ports:
+        - port: 80
+          protocol: TCP
+          name: wp-port
+
+- name: Wait for Some Seconds
+  pause:
+    seconds: "11"
+
+- name: Get Service Info
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Service
+    name: wp-svc
+    namespace: "{{ namespace }}"
+  register: wp_svc
+  ignore_errors: yes
+  
+- name: Print Msg
+  debug: 
+    msg: "Site Deployed! Site URL: {{ inventory_hostname}}:{{ wp_svc.resources.0.spec.ports.0.nodePort }}"
+  ignore_errors: yes

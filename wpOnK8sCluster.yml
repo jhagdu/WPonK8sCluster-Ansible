@@ -1,0 +1,36 @@
+- name: Install Required Roles from Ansible Galaxy
+  hosts: localhost
+  gather_facts: false
+  tasks:
+  - name: Install jhagdu.awsinfra4k8s Role
+    command: ansible-galaxy install jhagdu.awsinfra4k8s
+  - name: Install jhagdu.k8smaster Role
+    command: ansible-galaxy install jhagdu.k8smaster
+  - name: Install jhagdu.k8sworker Role
+    command: ansible-galaxy install jhagdu.k8sworker
+
+- name: Launch AWS Infrastructure for K8s Cluster
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - group_vars/localhost/aws_k8s_infra.yml
+  roles:
+    - jhagdu.awsinfra4k8s
+
+- name: Configure K8s Master Node
+  hosts: K8sMaster
+  roles:
+    - { role: jhagdu.k8smaster, become: yes}
+
+- name: Configure K8s Worker Nodes
+  hosts: K8sWorkers
+  vars:
+    - k8s_master_ip: "{{ groups.K8sMaster }}"
+  roles:
+    - { role: jhagdu.k8sworker, become: yes}
+
+- name: Deploy Wordpress on K8s Cluster
+  hosts: K8sMaster
+  gather_facts: false
+  roles:
+    - { role: wordpressonk8s, become: yes}

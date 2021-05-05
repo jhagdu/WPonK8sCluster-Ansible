@@ -1,0 +1,8 @@
+# Name of K8s Namespace to be created
+namespace: testing
+
+# Number of replicas to create
+wp_mysql_replicas: 1
+
+# Service Type
+svc_type: NodePort
